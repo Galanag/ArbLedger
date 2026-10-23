@@ -7,7 +7,7 @@ Callers should pass decimal strings, integers, or :class:`decimal.Decimal` value
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -30,8 +30,10 @@ def decimal_value(value: Any, *, field: str = "value") -> Decimal:
 
     Complexity: O(n), where n is the number of characters in a string input.
     """
-    if isinstance(value, bool) or isinstance(value, float):
-        raise ValidationError(f"{field} must be Decimal, int, or decimal string; float is forbidden")
+    if isinstance(value, (bool, float)):
+        raise ValidationError(
+            f"{field} must be Decimal, int, or decimal string; float is forbidden"
+        )
     if not isinstance(value, (Decimal, int, str)):
         raise ValidationError(f"{field} must be Decimal, int, or decimal string")
     try:
@@ -71,9 +73,9 @@ def aware_datetime(value: datetime, *, field: str = "timestamp") -> datetime:
         raise ValidationError(f"{field} must be a datetime")
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValidationError(f"{field} must include a timezone")
-    return value.astimezone(timezone.utc)
+    return value.astimezone(UTC)
 
 
 def utc_now() -> datetime:
     """Return a timezone-aware UTC timestamp."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)

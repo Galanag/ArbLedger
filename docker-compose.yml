@@ -1,0 +1,17 @@
+services:
+  arbledger:
+    image: arbledger-simulator:latest
+    build: .
+    command: ["--workers", "4", "--queue-size", "100", "--log-level", "INFO"]
+    environment:
+      - LOG_LEVEL=INFO
+    ports:
+      - "8080:8080"  # placeholder for future HTTP API
+    healthcheck:
+      test: ["CMD", "python", "-c", "from arbledger.interfaces.cli import main; main()"]
+      interval: 30s
+      timeout: 10s
+      start_period: 5s
+      retries: 3
+    volumes:
+      - ./data:/app/data:optional

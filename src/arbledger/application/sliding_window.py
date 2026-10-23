@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Deque
 
 from arbledger.domain.exceptions import OutOfOrderQuoteError, StaleQuoteError, ValidationError
 from arbledger.domain.models import PriceQuote
@@ -39,10 +38,10 @@ class SlidingWindowSpread:
             raise ValidationError("max_samples must be a positive integer")
         self._max_samples = max_samples
         self._window = timedelta(seconds=float(window))
-        self._samples: Deque[tuple[datetime, Decimal]] = deque()
-        self._mins: Deque[tuple[datetime, Decimal]] = deque()
-        self._maxs: Deque[tuple[datetime, Decimal]] = deque()
-        self._total = Decimal("0")
+        self._samples: deque[tuple[datetime, Decimal]] = deque()
+        self._mins: deque[tuple[datetime, Decimal]] = deque()
+        self._maxs: deque[tuple[datetime, Decimal]] = deque()
+        self._total = Decimal(0)
         self._last_timestamp: datetime | None = None
 
     def add(self, timestamp: datetime, spread: Decimal) -> SpreadStatistics:
@@ -55,7 +54,7 @@ class SlidingWindowSpread:
             raise ValidationError("spread timestamp must be a datetime")
         if timestamp.tzinfo is None or timestamp.utcoffset() is None:
             raise ValidationError("spread timestamp must be timezone-aware")
-        timestamp = timestamp.astimezone(timezone.utc)
+        timestamp = timestamp.astimezone(UTC)
         value = decimal_value(spread, field="spread")
         if self._last_timestamp is not None and timestamp < self._last_timestamp:
             raise OutOfOrderQuoteError("spread observation timestamp moved backwards")
@@ -123,7 +122,7 @@ class SlidingWindowQuoteBook:
         self._window = timedelta(seconds=float(window))
         self._max_quotes = max_quotes_per_stream
         self._max_streams = max_streams
-        self._streams: dict[tuple[str, str], Deque[PriceQuote]] = {}
+        self._streams: dict[tuple[str, str], deque[PriceQuote]] = {}
         self._last_seen: dict[tuple[str, str], PriceQuote] = {}
         self._watermark: datetime | None = None
 
@@ -139,9 +138,13 @@ class SlidingWindowQuoteBook:
                     f"sequence for {quote.venue}/{quote.pair} must increase beyond {previous.sequence}"
                 )
             if quote.timestamp < previous.timestamp:
-                raise OutOfOrderQuoteError(f"timestamp for {quote.venue}/{quote.pair} moved backwards")
+                raise OutOfOrderQuoteError(
+                    f"timestamp for {quote.venue}/{quote.pair} moved backwards"
+                )
 
-        candidate_watermark = max(self._watermark, quote.timestamp) if self._watermark else quote.timestamp
+        candidate_watermark = (
+            max(self._watermark, quote.timestamp) if self._watermark else quote.timestamp
+        )
         if quote.timestamp < candidate_watermark - self._window:
             raise StaleQuoteError(f"quote {quote.venue}/{quote.pair} is outside the active window")
 

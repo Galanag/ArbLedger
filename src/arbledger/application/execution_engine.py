@@ -21,7 +21,9 @@ class ExecutionEngine:
     currencies before starting concurrent execution tasks.
     """
 
-    def __init__(self, ledger: Ledger, *, max_execution_age_seconds: Decimal | str | int = "2") -> None:
+    def __init__(
+        self, ledger: Ledger, *, max_execution_age_seconds: Decimal | str | int = "2"
+    ) -> None:
         age = decimal_value(max_execution_age_seconds, field="max_execution_age_seconds")
         if age <= 0:
             raise ValidationError("max_execution_age_seconds must be finite and positive")
@@ -56,7 +58,10 @@ class ExecutionEngine:
         key = identifier(idempotency_key, field="idempotency_key")
         instant = aware_datetime(now, field="now") if now else utc_now()
         age_limit = float(self.max_execution_age_seconds)
-        if instant > opportunity.expires_at or (instant - opportunity.observed_at).total_seconds() > age_limit:
+        if (
+            instant > opportunity.expires_at
+            or (instant - opportunity.observed_at).total_seconds() > age_limit
+        ):
             raise OpportunityExpiredError(f"opportunity expired: {opportunity.opportunity_id}")
 
         buy = opportunity.buy_quote
@@ -81,7 +86,11 @@ class ExecutionEngine:
             (f"clearing:{sell.venue}", quote_currency, -sell_proceeds),
             (f"fees:{quote_currency}", quote_currency, sell_fee),
         )
-        postings = tuple(Posting(account_id, currency, amount) for account_id, currency, amount in posting_values if amount != 0)
+        postings = tuple(
+            Posting(account_id, currency, amount)
+            for account_id, currency, amount in posting_values
+            if amount != 0
+        )
         posted = await self.ledger.post_transaction(
             key,
             postings,

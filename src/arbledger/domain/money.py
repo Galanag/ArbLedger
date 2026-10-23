@@ -1,6 +1,6 @@
 """Currency-aware quantization utilities for simulated settlement amounts."""
 
-from decimal import Decimal, InvalidOperation, ROUND_HALF_EVEN
+from decimal import ROUND_HALF_EVEN, Decimal, InvalidOperation
 
 from .exceptions import ValidationError
 from .validation import currency_code, decimal_value

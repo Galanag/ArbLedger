@@ -22,14 +22,20 @@ class StrategyConfig:
     emitted only when its fee-adjusted net profit clears this threshold.
     """
 
-    fee_bps: Decimal = Decimal("5")
+    fee_bps: Decimal = Decimal(5)
     min_net_profit: Decimal = Decimal("0.01")
-    min_edge_bps: Decimal = Decimal("0")
-    max_quote_age_seconds: Decimal = Decimal("2")
-    opportunity_ttl_seconds: Decimal = Decimal("1")
+    min_edge_bps: Decimal = Decimal(0)
+    max_quote_age_seconds: Decimal = Decimal(2)
+    opportunity_ttl_seconds: Decimal = Decimal(1)
 
     def __post_init__(self) -> None:
-        for field in ("fee_bps", "min_net_profit", "min_edge_bps", "max_quote_age_seconds", "opportunity_ttl_seconds"):
+        for field in (
+            "fee_bps",
+            "min_net_profit",
+            "min_edge_bps",
+            "max_quote_age_seconds",
+            "opportunity_ttl_seconds",
+        ):
             value = decimal_value(getattr(self, field), field=field)
             object.__setattr__(self, field, value)
         if self.fee_bps < 0 or self.min_net_profit < 0 or self.min_edge_bps < 0:
@@ -68,9 +74,13 @@ class ArbitrageStrategy:
 
         observed_now = aware_datetime(now, field="now") if now else utc_now()
         # Both event-time observations must remain within the same validity envelope.
-        if abs((observed_now - buy_quote.timestamp).total_seconds()) > float(self.config.max_quote_age_seconds):
+        if abs((observed_now - buy_quote.timestamp).total_seconds()) > float(
+            self.config.max_quote_age_seconds
+        ):
             return None
-        if abs((observed_now - sell_quote.timestamp).total_seconds()) > float(self.config.max_quote_age_seconds):
+        if abs((observed_now - sell_quote.timestamp).total_seconds()) > float(
+            self.config.max_quote_age_seconds
+        ):
             return None
         if buy_quote.ask >= sell_quote.bid:
             return None
@@ -78,21 +88,27 @@ class ArbitrageStrategy:
         quote_currency = buy_quote.quote_currency
         buy_notional = quantize_currency(buy_quote.ask * qty, quote_currency)
         sell_notional = quantize_currency(sell_quote.bid * qty, quote_currency)
-        fee_rate = self.config.fee_bps / Decimal("10000")
+        fee_rate = self.config.fee_bps / Decimal(10000)
         buy_fee = quantize_currency(buy_notional * fee_rate, quote_currency)
         sell_fee = quantize_currency(sell_notional * fee_rate, quote_currency)
         gross_profit = sell_notional - buy_notional
         net_profit = gross_profit - buy_fee - sell_fee
-        edge_bps = (net_profit / buy_notional * Decimal("10000")) if buy_notional else Decimal("0")
+        edge_bps = (net_profit / buy_notional * Decimal(10000)) if buy_notional else Decimal(0)
         if net_profit < self.config.min_net_profit or edge_bps < self.config.min_edge_bps:
             return None
 
         # A deterministic identity makes deduplication repeatable across replays. It is
         # not used as the ledger idempotency key; callers still supply one per command.
-        identity_text = "|".join((
-            buy_quote.pair, buy_quote.venue, str(buy_quote.sequence),
-            sell_quote.venue, str(sell_quote.sequence), str(qty),
-        ))
+        identity_text = "|".join(
+            (
+                buy_quote.pair,
+                buy_quote.venue,
+                str(buy_quote.sequence),
+                sell_quote.venue,
+                str(sell_quote.sequence),
+                str(qty),
+            )
+        )
         opportunity_id = "opp-" + hashlib.sha256(identity_text.encode("utf-8")).hexdigest()[:24]
         observed_at = max(buy_quote.timestamp, sell_quote.timestamp)
         return ArbitrageOpportunity(

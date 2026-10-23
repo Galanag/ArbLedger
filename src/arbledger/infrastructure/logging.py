@@ -5,11 +5,13 @@ from __future__ import annotations
 import contextvars
 import json
 import logging
+from collections.abc import Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
-from typing import Iterator
+from datetime import UTC, datetime
 
-_correlation_id: contextvars.ContextVar[str] = contextvars.ContextVar("arbledger_correlation_id", default="-")
+_correlation_id: contextvars.ContextVar[str] = contextvars.ContextVar(
+    "arbledger_correlation_id", default="-"
+)
 
 
 @contextmanager
@@ -27,7 +29,7 @@ class JsonLogFormatter(logging.Formatter):
 
     def format(self, record: logging.LogRecord) -> str:
         payload: dict[str, object] = {
-            "timestamp": datetime.fromtimestamp(record.created, timezone.utc).isoformat(),
+            "timestamp": datetime.fromtimestamp(record.created, UTC).isoformat(),
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),

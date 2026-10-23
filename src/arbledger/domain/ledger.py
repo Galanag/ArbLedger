@@ -12,11 +12,11 @@ from __future__ import annotations
 import asyncio
 import hashlib
 from collections import defaultdict
+from collections.abc import AsyncIterator, Iterable, Mapping
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal
-from typing import AsyncIterator, Iterable, Mapping
 
 from .exceptions import (
     AccountNotFoundError,
@@ -26,7 +26,7 @@ from .exceptions import (
     LedgerInvariantError,
     ValidationError,
 )
-from .models import LedgerEntry, LedgerTransaction, PostResult, Posting
+from .models import LedgerEntry, LedgerTransaction, Posting, PostResult
 from .validation import aware_datetime, currency_code, decimal_value, identifier, utc_now
 
 
@@ -52,14 +52,16 @@ class Account:
             code = currency_code(currency)
             parsed = decimal_value(amount, field=f"opening balance {code}")
             if parsed < 0 and not self.allow_negative:
-                raise ValidationError(f"opening balance for {self.account_id}/{code} cannot be negative")
-            normalized[code] = normalized.get(code, Decimal("0")) + parsed
+                raise ValidationError(
+                    f"opening balance for {self.account_id}/{code} cannot be negative"
+                )
+            normalized[code] = normalized.get(code, Decimal(0)) + parsed
         self._balances = normalized
         self.opening_balances = dict(normalized)
         self._lock = asyncio.Lock()
 
     def _balance(self, currency: str) -> Decimal:
-        return self._balances.get(currency, Decimal("0"))
+        return self._balances.get(currency, Decimal(0))
 
     def _apply(self, currency: str, amount: Decimal) -> None:
         self._balances[currency] = self._balance(currency) + amount
@@ -173,7 +175,9 @@ class Ledger:
             if prior is not None:
                 old_fingerprint, transaction = prior
                 if old_fingerprint != fingerprint:
-                    raise IdempotencyConflictError(f"idempotency key reused with different payload: {key}")
+                    raise IdempotencyConflictError(
+                        f"idempotency key reused with different payload: {key}"
+                    )
                 return PostResult(transaction=transaction, replayed=True)
 
             account_ids = sorted({line.account_id for line in lines})
@@ -188,10 +192,12 @@ class Ledger:
                             f"posting would overdraw {account_id}/{code}: resulting balance {resulting}"
                         )
 
-                instant = aware_datetime(created_at, field="created_at") if created_at else utc_now()
-                transaction_id = "txn-" + hashlib.sha256(
-                    f"{key}|{fingerprint}".encode("utf-8")
-                ).hexdigest()[:24]
+                instant = (
+                    aware_datetime(created_at, field="created_at") if created_at else utc_now()
+                )
+                transaction_id = (
+                    "txn-" + hashlib.sha256(f"{key}|{fingerprint}".encode()).hexdigest()[:24]
+                )
                 entries = tuple(
                     LedgerEntry(
                         transaction_id=transaction_id,
@@ -229,7 +235,9 @@ class Ledger:
     @staticmethod
     def _fingerprint(reference: str, postings: tuple[Posting, ...]) -> str:
         """Hash the normalized business payload independent of posting order."""
-        normalized = sorted((p.account_id, p.currency, format(p.amount.normalize(), "f")) for p in postings)
+        normalized = sorted(
+            (p.account_id, p.currency, format(p.amount.normalize(), "f")) for p in postings
+        )
         canonical = reference + "\n" + "\n".join("|".join(line) for line in normalized)
         return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 

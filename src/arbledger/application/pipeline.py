@@ -62,7 +62,11 @@ class MarketPipeline:
             raise ValueError("workers must be a positive integer")
         if isinstance(queue_size, bool) or not isinstance(queue_size, int) or queue_size < 1:
             raise ValueError("queue_size must be a positive integer")
-        if isinstance(history_limit, bool) or not isinstance(history_limit, int) or history_limit < 1:
+        if (
+            isinstance(history_limit, bool)
+            or not isinstance(history_limit, int)
+            or history_limit < 1
+        ):
             raise ValueError("history_limit must be a positive integer")
         self.engine = engine
         self.workers = workers
@@ -85,7 +89,10 @@ class MarketPipeline:
         if self.state is not PipelineState.NEW:
             raise RuntimeError(f"cannot start pipeline in state {self.state.name}")
         self.state = PipelineState.RUNNING
-        self._tasks = [asyncio.create_task(self._worker(i), name=f"arbledger-worker-{i}") for i in range(self.workers)]
+        self._tasks = [
+            asyncio.create_task(self._worker(i), name=f"arbledger-worker-{i}")
+            for i in range(self.workers)
+        ]
 
     async def submit(self, quote: PriceQuote) -> None:
         """Enqueue a quote, waiting when the bounded queue is full."""
@@ -137,7 +144,10 @@ class MarketPipeline:
                 except Exception as exc:  # isolate malformed/out-of-order messages
                     self.errors.append(exc)
                     self._failures_total += 1
-                    logger.exception("quote processing failed", extra={"worker_id": worker_id, "venue": item.venue})
+                    logger.exception(
+                        "quote processing failed",
+                        extra={"worker_id": worker_id, "venue": item.venue},
+                    )
                     continue
                 self.processed += 1
                 for candidate in candidates:
@@ -151,7 +161,10 @@ class MarketPipeline:
                             self._failures_total += 1
                             logger.exception(
                                 "opportunity handler failed",
-                                extra={"worker_id": worker_id, "opportunity_id": candidate.opportunity_id},
+                                extra={
+                                    "worker_id": worker_id,
+                                    "opportunity_id": candidate.opportunity_id,
+                                },
                             )
             finally:
                 self.queue.task_done()
